@@ -85,13 +85,9 @@ const resolvers = {
       }
         return books
       },
-      allAuthors: (root, args, context) => {
-        const currentUser = context.currentUser
-
-        if (!currentUser) {
-          throw new AuthenticationError("not authenticated")
-        }
-        return Author.find({}).exec() 
+      allAuthors: async () => {
+        const authors = await Author.find({}).exec()
+        return authors
       },
       me: (root, args, context) => {
         return context.currentUser
@@ -105,13 +101,13 @@ const resolvers = {
     },
     Mutation: {
       addBook: async (root, args, context) => {
-        const author = await Author.findOne({ name: args.author })
-        const currentUser = context.currentUser
 
+        const currentUser = context.currentUser
         if (!currentUser) {
           throw new AuthenticationError("not authenticated")
         }
 
+        const author = await Author.findOne({ name: args.author })
         if(!author) {
           const newAuthor = await new Author({ name: args.author })
           try {
