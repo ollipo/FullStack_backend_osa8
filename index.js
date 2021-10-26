@@ -169,9 +169,22 @@ const resolvers = {
         const author = await Author.findOne({ name: args.author })
         if(!author) {
           const newAuthor = await new Author({ name: args.author })
-          await newAuthor.save()
+          try {
+            await newAuthor.save()
+          } catch (error) {
+            throw new UserInputError(error.message, {
+              invalidArgs: args,
+            })
+          }
           const book = new Book({ ...args, author: newAuthor.id })
-          return book.save()
+          try {
+            await book.save()
+          } catch (error) {
+            throw new UserInputError(error.message, {
+              invalidArgs: args,
+            })
+          }
+          return book
         }
         const book = new Book({ ...args, author: author.id })
         return book.save()
@@ -182,7 +195,14 @@ const resolvers = {
           return null
         }
         author.born = args.setBornTo
-        return author.save()
+        try {
+          await author.save()
+        } catch (error) {
+          throw new UserInputError(error.message, {
+            invalidArgs: args,
+          })
+        }
+        return author
       }
     }
 }
