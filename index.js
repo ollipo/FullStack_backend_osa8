@@ -115,7 +115,7 @@ const resolvers = {
         }
 
         const author = await Author.findOne({ name: args.author })
-        
+        console.log('jau')
         if(!author) {
           const newAuthor = await new Author({ name: args.author })
           try {
@@ -134,9 +134,9 @@ const resolvers = {
             })
           }
 
-          pubsub.publish('BOOK_ADDED', { bookAdded: book })
+          pubsub.publish('BOOK_ADDED', { bookAdded: book.populate('author') })
 
-          return book
+          return book.populate('author')
         }
         const book = new Book({ ...args, author: author.id })
         try {
@@ -147,9 +147,9 @@ const resolvers = {
           })
         }
 
-        pubsub.publish('BOOK_ADDED', { bookAdded: book })
+        pubsub.publish('BOOK_ADDED', { bookAdded: book.populate('author') })
 
-        return book
+        return book.populate('author')
       },
       editAuthor: async (root, args, context) => {
         const author = await Author.findOne({ name: args.name })
