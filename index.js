@@ -5,6 +5,9 @@ require('dotenv').config()
 const Book = require('./models/book')
 const Author = require('./models/author')
 const User = require('./models/user')
+const { PubSub } = require('graphql-subscriptions')
+
+const pubsub = new PubSub()
 
 const url = process.env.MONGODB_URI
 
@@ -71,6 +74,9 @@ const typeDefs = gql`
       username: String!
       password: String!
     ): Token
+  },
+  type Subscription {
+    bookAdded: Book!
   }
 `
 
@@ -79,6 +85,7 @@ const resolvers = {
       bookCount: () => Book.collection.countDocuments(),
       authorCount: () => Author.collection.countDocuments(),
       allBooks: async (root, args) => {
+        console.log(args)
         const books = await Book.find({}).populate('author').exec()
         if(args.genre){
           return books.filter(b => b.genres.includes(args.genre))
@@ -108,6 +115,7 @@ const resolvers = {
         }
 
         const author = await Author.findOne({ name: args.author })
+        
         if(!author) {
           const newAuthor = await new Author({ name: args.author })
           try {
@@ -125,10 +133,23 @@ const resolvers = {
               invalidArgs: args,
             })
           }
+
+          pubsub.publish('BOOK_ADDED', { bookAdded: book })
+
           return book
         }
         const book = new Book({ ...args, author: author.id })
-        return book.save()
+        try {
+          await book.save()
+        } catch (error) {
+          throw new UserInputError(error.message, {
+            invalidArgs: args,
+          })
+        }
+
+        pubsub.publish('BOOK_ADDED', { bookAdded: book })
+
+        return book
       },
       editAuthor: async (root, args, context) => {
         const author = await Author.findOne({ name: args.name })
@@ -178,7 +199,12 @@ const resolvers = {
     
         return { value: jwt.sign(userForToken, process.env.JWT_SECRET) }
       },
-    }
+    },
+    Subscription: {
+      bookAdded: {
+        subscribe: () => pubsub.asyncIterator(['BOOK_ADDED'])
+      },
+    },
 }
 
 const server = new ApolloServer({
@@ -196,6 +222,7 @@ const server = new ApolloServer({
   }
 })
 
-server.listen().then(({ url }) => {
+server.listen().then(({ url, subscriptionsUrl }) => {
   console.log(`Server ready at ${url}`)
+  console.log(`Subscriptions ready at ${subscriptionsUrl}`)
 })
