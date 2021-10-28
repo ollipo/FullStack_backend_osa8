@@ -6,6 +6,8 @@ const Book = require('./models/book')
 const Author = require('./models/author')
 const User = require('./models/user')
 const { PubSub } = require('graphql-subscriptions')
+const DataLoader = require('dataloader')
+const author = require('./models/author')
 
 const pubsub = new PubSub()
 
@@ -93,17 +95,26 @@ const resolvers = {
         return books
       },
       allAuthors: async () => {
-        const authors = await Author.find({}).exec()
+        const authors = await Author.find({})
+        const books = await Book.find({}).populate('author')
+
+        const authorsBookCount = (id) => {
+          return books
+            .filter(book => 
+              book.author.id === id).length
+        }
+        
         return authors
+          .map(a => ({ 
+            name: a.name, 
+            id: a.id, 
+            born: a.born, 
+            bookCount: authorsBookCount(a.id)
+          })
+        )
       },
       me: (root, args, context) => {
         return context.currentUser
-      }
-    },
-    Author: {
-      bookCount: async (root, args) => {
-        const books = await Book.find({}).exec()
-        return books.filter(b => (b.author.toString()) === root.id).length
       }
     },
     Mutation: {
